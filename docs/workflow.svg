@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect width="900" height="320" fill="#ffffff"/>
+  <text x="20" y="28" font-size="13" font-weight="700" fill="#0f172a">Testing one port, start to finish</text>
+
+  <!-- 1 pick port -->
+  <rect x="20" y="56" width="150" height="120" rx="12" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1.5"/>
+  <circle cx="40" cy="72" r="11" fill="#2563eb"/><text x="40" y="76" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">1</text>
+  <text x="95" y="100" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0f172a">Pick a port</text>
+  <text x="95" y="120" text-anchor="middle" font-size="10" fill="#475569">click "Test" on a</text>
+  <text x="95" y="134" text-anchor="middle" font-size="10" fill="#475569">row in the port table</text>
+  <text x="95" y="158" text-anchor="middle" font-size="9.5" fill="#94a3b8">only this port is live</text>
+
+  <!-- 2 branch: fill whole port -->
+  <rect x="205" y="30" width="160" height="72" rx="12" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="285" y="52" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">Fill whole port</text>
+  <text x="285" y="70" text-anchor="middle" font-size="9.5" fill="#475569">solid colour - quick</text>
+  <text x="285" y="84" text-anchor="middle" font-size="9.5" fill="#475569">"is it alive?" check</text>
+
+  <!-- 2b branch: count mode -->
+  <rect x="205" y="130" width="160" height="96" rx="12" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <circle cx="225" cy="146" r="11" fill="#2563eb"/><text x="225" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">2</text>
+  <text x="285" y="168" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">Count mode</text>
+  <text x="285" y="186" text-anchor="middle" font-size="9.5" fill="#475569">one pixel lit at a time,</text>
+  <text x="285" y="200" text-anchor="middle" font-size="9.5" fill="#475569">step / jump / auto-play</text>
+  <g>
+    <circle cx="255" cy="214" r="4" fill="#22c55e"/><circle cx="270" cy="214" r="4" fill="#e5e7eb"/>
+    <circle cx="285" cy="214" r="4" fill="#e5e7eb"/><circle cx="300" cy="214" r="4" fill="#e5e7eb"/><circle cx="315" cy="214" r="4" fill="#e5e7eb"/>
+  </g>
+
+  <!-- 3 watch -->
+  <rect x="405" y="130" width="160" height="96" rx="12" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <circle cx="425" cy="146" r="11" fill="#2563eb"/><text x="425" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">3</text>
+  <text x="485" y="168" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">Watch the strand</text>
+  <text x="485" y="186" text-anchor="middle" font-size="9.5" fill="#475569">until the light stops</text>
+  <text x="485" y="200" text-anchor="middle" font-size="9.5" fill="#475569">advancing (dead pixel)</text>
+  <g>
+    <circle cx="450" cy="214" r="4" fill="#22c55e"/><circle cx="465" cy="214" r="4" fill="#22c55e"/><circle cx="480" cy="214" r="4" fill="#22c55e"/>
+    <circle cx="495" cy="214" r="4" fill="#cbd5e1"/><circle cx="510" cy="214" r="4" fill="#cbd5e1"/><circle cx="525" cy="214" r="4" fill="#cbd5e1"/>
+  </g>
+  <text x="485" y="216" text-anchor="middle" font-size="8" fill="#94a3b8" dy="14">stopped at 3</text>
+
+  <!-- 4 mark + save -->
+  <rect x="605" y="130" width="160" height="96" rx="12" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <circle cx="625" cy="146" r="11" fill="#2563eb"/><text x="625" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">4</text>
+  <text x="685" y="168" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">"Where it stopped"</text>
+  <text x="685" y="186" text-anchor="middle" font-size="9.5" fill="#475569">captures that step,</text>
+  <text x="685" y="200" text-anchor="middle" font-size="9.5" fill="#475569">then Save result</text>
+
+  <!-- 5 result -->
+  <rect x="775" y="130" width="105" height="96" rx="12" fill="#fdecec" stroke="#f5b5b5" stroke-width="1.5"/>
+  <text x="827" y="152" text-anchor="middle" font-size="10.5" font-weight="700" fill="#c0392b">Port table</text>
+  <text x="827" y="172" text-anchor="middle" font-size="9.5" fill="#c0392b">shows</text>
+  <text x="827" y="186" text-anchor="middle" font-size="9.5" fill="#c0392b" font-weight="700">Mismatch: 37/50</text>
+  <text x="827" y="204" text-anchor="middle" font-size="8.5" fill="#94a3b8">or "OK" if it matches</text>
+
+  <!-- arrows -->
+  <g stroke="#334155" stroke-width="2" fill="none" marker-end="url(#w1)">
+    <path d="M170 100 H195 V66 H200"/>
+    <path d="M170 130 H195 V178 H200"/>
+    <path d="M365 178 H400"/>
+    <path d="M565 178 H600"/>
+    <path d="M765 178 H770"/>
+  </g>
+  <defs><marker id="w1" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0 0 L7 3.2 L0 6.4 z" fill="#334155"/></marker></defs>
+
+  <text x="450" y="270" text-anchor="middle" font-size="10.5" fill="#64748b">"Fill all ports" runs the same idea across every port at once, for a fast whole-rig sanity check.</text>
+  <text x="450" y="288" text-anchor="middle" font-size="10.5" fill="#64748b">"All Off" (always available) clears test mode instantly, and it fires automatically when you leave the page.</text>
+</svg>

@@ -6,6 +6,8 @@ time**, so you can visually count how many LEDs on a strand actually light up. B
 verifying a new run of pixels, or finding exactly where a strand died, without pulling
 out a multimeter.
 
+![Testing one port, start to finish](docs/workflow.svg)
+
 No `fppd` changes, no compiled component - this plugin only reads the ports you've
 already configured under **Content Setup → Channel Outputs** and drives FPP's own,
 long-standing `/api/testmode` endpoint (the same one the stock **Status/Control → Testing**
@@ -54,9 +56,20 @@ independent of any plugin. This plugin's `action.php` just:
    whole port or a single pixel's channels, depending on what you clicked.
 3. Saves your observed-count entries to `config/plugin.portledtest.results.json`.
 
+![How a click reaches a physical pixel](docs/architecture.svg)
+
 Because it rides on the stock test-mode overlay, it behaves exactly like the built-in
 Testing page - one test pattern is active system-wide at a time, and it takes over output
 regardless of play/idle state, so stop playback first.
+
+### Turning a "step" into channels
+
+Every port is really just a run of channels. The plugin works out, for each virtual
+string, where the real pixel data starts (after any null nodes), how many channels each
+pixel takes (`colorOrder` length - 3 for RGB, 4 for RGBW), and how many physical LEDs a
+"grouped" string ganges onto a single addressable step:
+
+![What one step actually lights up on the wire](docs/channel-mapping.svg)
 
 ## Notes
 
