@@ -1,0 +1,13 @@
+{
+	"repoName": "portledtest",
+	"name": "Port & LED Tester",
+	"author": "joeskolengaden",
+	"description": "Lights up one physical output port at a time (or all ports at once) and steps through pixels one-by-one so you can visually count how many LEDs on a strand actually light up. Pure UI plugin - drives FPP's own built-in /api/testmode, no fppd changes required. Records per-port configured-vs-observed counts so you can spot dead sections at a glance.",
+	"homeURL": "https://github.com/joeskolengaden/portledtest",
+	"srcURL": "https://github.com/joeskolengaden/portledtest.git",
+	"bugURL": "https://github.com/joeskolengaden/portledtest/issues",
+	"allowUpdates": 1,
+	"versions": [
+		{ "minFPPVersion": "5.4", "maxFPPVersion": "0", "branch": "main", "sha": "" }
+	]
+}
