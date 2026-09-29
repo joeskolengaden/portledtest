@@ -5,6 +5,8 @@
  * the absolute channel range that FPP's own test mode understands.
  */
 
+require_once __DIR__ . '/wl_labels.php';
+
 function pt_config_dir() {
     global $settings;
     return isset($settings['configDirectory']) ? $settings['configDirectory'] : '/home/fpp/media/config';
@@ -23,6 +25,29 @@ function pt_load_results() {
 
 function pt_save_results($data) {
     return @file_put_contents(pt_results_path(), json_encode($data, JSON_PRETTY_PRINT)) !== false;
+}
+
+function pt_history_path() {
+    return pt_config_dir() . '/plugin.portledtest.history.jsonl';
+}
+
+// Append-only log of every saved result, kept alongside the latest-per-port
+// summary in pt_results_path() so past tests aren't lost when a port is re-tested.
+function pt_append_history($row) {
+    return @file_put_contents(pt_history_path(), json_encode($row) . "\n", FILE_APPEND) !== false;
+}
+
+function pt_load_history() {
+    $path = pt_history_path();
+    if (!file_exists($path)) return array();
+    $rows = array();
+    foreach (explode("\n", (string)@file_get_contents($path)) as $line) {
+        $line = trim($line);
+        if ($line === '') continue;
+        $row = json_decode($line, true);
+        if (is_array($row)) $rows[] = $row;
+    }
+    return $rows;
 }
 
 function pt_get_channel_outputs() {
@@ -50,6 +75,7 @@ function pt_list_ports() {
 
     foreach ($cos as $co) {
         $type = isset($co['type']) ? $co['type'] : 'Unknown';
+        $subType = isset($co['subType']) ? $co['subType'] : '';
         $enabled = isset($co['enabled']) ? (int)$co['enabled'] : 1;
         $baseStart = isset($co['startChannel']) ? (int)$co['startChannel'] : 1;
 
@@ -57,6 +83,7 @@ function pt_list_ports() {
             foreach ($co['outputs'] as $out) {
                 $portNum = isset($out['portNumber']) ? $out['portNumber']
                     : (isset($out['outputNumber']) ? $out['outputNumber'] : count($ports));
+                $capeLabel = pt_wl_cape_label($subType, $portNum);
 
                 if (isset($out['virtualStrings']) && is_array($out['virtualStrings']) && count($out['virtualStrings'])) {
                     foreach ($out['virtualStrings'] as $vi => $vs) {
@@ -89,6 +116,9 @@ function pt_list_ports() {
                             'groupCount' => $groupCount,
                             'nullNodes' => $nullNodes,
                             'coEnabled' => $enabled,
+                            'subType' => $subType,
+                            'capeLabel' => $capeLabel ? $capeLabel['label'] : null,
+                            'capeLabelVerified' => $capeLabel ? $capeLabel['verified'] : null,
                         );
                     }
                 } else {
@@ -115,6 +145,9 @@ function pt_list_ports() {
                         'groupCount' => 1,
                         'nullNodes' => 0,
                         'coEnabled' => $enabled,
+                        'subType' => $subType,
+                        'capeLabel' => $capeLabel ? $capeLabel['label'] : null,
+                        'capeLabelVerified' => $capeLabel ? $capeLabel['verified'] : null,
                     );
                 }
             }
@@ -137,6 +170,9 @@ function pt_list_ports() {
                 'groupCount' => 1,
                 'nullNodes' => 0,
                 'coEnabled' => $enabled,
+                'subType' => $subType,
+                'capeLabel' => null,
+                'capeLabelVerified' => null,
             );
         }
     }

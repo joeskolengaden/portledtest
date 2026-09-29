@@ -9,38 +9,66 @@
  *
  * Actions (POST unless noted):
  *   list                                  -> ports + any saved results
+ *   status                                -> current fppd status_name / playlist, for the "sequence is playing" banner
+ *   stop_playback                         -> GET /api/playlists/stop (stop the current sequence, not test mode)
  *   fill      start,count,c1,c2,c3        -> RGBFill that channel range
+ *   fill_all  c1,c2,c3                    -> RGBFill every configured port at once
  *   stop                                  -> disable test mode (all outputs off)
  *   save_result  id,observed,configured,note
  *   clear_result id
+ *   history_csv (GET)                     -> download full test history as a CSV file
  */
-@header('Content-Type: application/json');
+// This endpoint's entire response body must be clean JSON (or CSV, for
+// history_csv) - never let a stray PHP notice/warning from the host's own
+// error-display setting get mixed into it and break the caller's parser.
+@ini_set('display_errors', '0');
 require_once __DIR__ . '/lib/ports.php';
 
 function pt_out($ok, $extra = array()) {
+    @header('Content-Type: application/json');
     echo json_encode(array_merge(array('ok' => $ok), $extra));
     exit;
 }
 
-function pt_http_post_json($path, $payload) {
+/*
+ * GET/POST to FPP's own local API. Uses curl when available (most FPP
+ * builds), falling back to a plain stream-context request otherwise, so a
+ * minimal PHP build without ext-curl still works.
+ */
+function pt_http($method, $path, $payload = null) {
     $url = 'http://127.0.0.1' . $path;
-    $body = json_encode($payload);
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
-    $resp = curl_exec($ch);
-    $ok = ($resp !== false) && (curl_errno($ch) === 0);
-    curl_close($ch);
-    return $ok;
+    $body = ($payload !== null) ? json_encode($payload) : null;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+        }
+        $resp = curl_exec($ch);
+        $ok = ($resp !== false) && (curl_errno($ch) === 0);
+        // No curl_close(): a no-op since PHP 8.0, deprecated (warns) in 8.5+,
+        // and any stray warning here would corrupt the JSON response body.
+        return array($ok, $ok ? $resp : null);
+    }
+
+    // Fallback: no ext-curl available.
+    $opts = array('http' => array('method' => $method, 'timeout' => 5, 'ignore_errors' => true));
+    if ($method === 'POST') {
+        $opts['http']['header'] = "Content-Type: application/json\r\n";
+        $opts['http']['content'] = $body;
+    }
+    $resp = @file_get_contents($url, false, stream_context_create($opts));
+    return array($resp !== false, $resp !== false ? $resp : null);
 }
 
 function pt_set_testmode_fill($start, $count, $c1, $c2, $c3) {
     $end = $start + $count - 1;
-    return pt_http_post_json('/api/testmode', array(
+    list($ok, ) = pt_http('POST', '/api/testmode', array(
         'enabled' => 1,
         'mode' => 'RGBFill',
         'channelSet' => "$start-$end",
@@ -49,12 +77,13 @@ function pt_set_testmode_fill($start, $count, $c1, $c2, $c3) {
         'color2' => $c2,
         'color3' => $c3,
     ));
+    return $ok;
 }
 
 function pt_set_testmode_fill_multi($ranges, $c1, $c2, $c3) {
     // $ranges is an array of "start-end" strings; TestPatternBase accepts
     // a ';'-joined channelSet so many ports can be lit in one pattern.
-    return pt_http_post_json('/api/testmode', array(
+    list($ok, ) = pt_http('POST', '/api/testmode', array(
         'enabled' => 1,
         'mode' => 'RGBFill',
         'channelSet' => implode(';', $ranges),
@@ -63,10 +92,20 @@ function pt_set_testmode_fill_multi($ranges, $c1, $c2, $c3) {
         'color2' => $c2,
         'color3' => $c3,
     ));
+    return $ok;
 }
 
 function pt_disable_testmode() {
-    return pt_http_post_json('/api/testmode', array('enabled' => 0));
+    list($ok, ) = pt_http('POST', '/api/testmode', array('enabled' => 0));
+    return $ok;
+}
+
+// A short label for a port, used in the history CSV / status lookups.
+function pt_port_label($p) {
+    $bits = array($p['type'] . ' #' . $p['port']);
+    if (!empty($p['capeLabel'])) $bits[] = $p['capeLabel'];
+    if (!empty($p['description']) && $p['description'] !== ('Port ' . $p['port'])) $bits[] = $p['description'];
+    return implode(' - ', $bits);
 }
 
 $action = isset($_POST['action']) ? $_POST['action'] : (isset($_GET['action']) ? $_GET['action'] : '');
@@ -79,6 +118,23 @@ if ($action === 'list') {
     }
     unset($p);
     pt_out(true, array('ports' => $ports));
+}
+
+if ($action === 'status') {
+    list($ok, $resp) = pt_http('GET', '/api/system/status');
+    if (!$ok) pt_out(false, array('error' => 'Could not reach fppd'));
+    $j = json_decode($resp, true);
+    if (!is_array($j)) pt_out(false, array('error' => 'Bad response from fppd'));
+    pt_out(true, array(
+        'status_name' => isset($j['status_name']) ? $j['status_name'] : 'unknown',
+        'current_playlist' => isset($j['current_playlist']['playlist']) ? $j['current_playlist']['playlist'] : '',
+        'current_sequence' => isset($j['current_sequence']) ? $j['current_sequence'] : '',
+    ));
+}
+
+if ($action === 'stop_playback') {
+    list($ok, ) = pt_http('GET', '/api/playlists/stop');
+    pt_out($ok);
 }
 
 if ($action === 'fill') {
@@ -124,15 +180,25 @@ if ($action === 'save_result') {
 
     if ($id === '' || $observed < 0) pt_out(false, array('error' => 'Missing id/observed'));
 
-    $results = pt_load_results();
-    $results[$id] = array(
+    $ports = pt_list_ports();
+    $label = $id;
+    foreach ($ports as $p) {
+        if ($p['id'] === $id) { $label = pt_port_label($p); break; }
+    }
+
+    $row = array(
         'observed' => $observed,
         'configured' => $configured,
         'match' => ($observed === $configured),
         'note' => $note,
         'testedAt' => date('c'),
     );
+
+    $results = pt_load_results();
+    $results[$id] = $row;
     if (!pt_save_results($results)) pt_out(false, array('error' => 'Could not write results file'));
+
+    pt_append_history(array_merge(array('id' => $id, 'port' => $label), $row));
     pt_out(true);
 }
 
@@ -144,6 +210,28 @@ if ($action === 'clear_result') {
         pt_save_results($results);
     }
     pt_out(true);
+}
+
+if ($action === 'history_csv') {
+    $rows = pt_load_history();
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="portledtest-history.csv"');
+    $out = fopen('php://output', 'w');
+    // Explicit delimiter/enclosure/escape: PHP 8.4+ deprecates the 3-arg form,
+    // and we can't risk a stray notice landing inside the CSV body.
+    fputcsv($out, array('Tested at', 'Port', 'Configured', 'Observed', 'Match', 'Note'), ',', '"', '\\');
+    foreach ($rows as $r) {
+        fputcsv($out, array(
+            isset($r['testedAt']) ? $r['testedAt'] : '',
+            isset($r['port']) ? $r['port'] : (isset($r['id']) ? $r['id'] : ''),
+            isset($r['configured']) ? $r['configured'] : '',
+            isset($r['observed']) ? $r['observed'] : '',
+            (!empty($r['match'])) ? 'yes' : 'no',
+            isset($r['note']) ? $r['note'] : '',
+        ), ',', '"', '\\');
+    }
+    fclose($out);
+    exit;
 }
 
 pt_out(false, array('error' => 'Unknown action'));

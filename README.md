@@ -31,8 +31,20 @@ from **5.4 onward**.
   port table.
 - **Fill all ports at once** - a quick whole-rig sanity check before diving into individual
   ports.
-- **All Off / Stop Test** - always available, and fired automatically when you leave the
-  page.
+- **All Off / Stop Test** - always available, fired automatically when you leave the page,
+  and also auto-fires after an idle timeout (default 10 min, configurable, or "Never") so a
+  forgotten tab doesn't leave a port lit indefinitely.
+- **Warns if a sequence is playing** - polls `/api/system/status` and shows a banner with a
+  one-click "Stop playback" button before you start a test that would otherwise interrupt it.
+- **Keyboard shortcuts** while a port is selected: ← / → step, space play/pause.
+- **Cape-aware port labels** - on a WinterLights48 cape, each row also shows the label
+  actually printed on the PCB silkscreen (driver slot, web-UI port, BBB pin, and silkscreen
+  label are four different numbers in FPP - see `lib/wl_labels.php`), so you're not mentally
+  translating mid-test. WinterLights16 is included as a documented-but-not-device-verified
+  label set; anything else falls back to the plain port number rather than guess.
+- **Full test history, not just the latest** - every saved result is appended to
+  `config/plugin.portledtest.history.jsonl`; **Download history (CSV)** exports the whole
+  log.
 
 ## Install
 

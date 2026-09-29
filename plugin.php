@@ -47,6 +47,10 @@
 <div id="pt">
   <p class="intro">Lights up one physical output port at a time (or all of them at once) using FPP's built-in test mode, and steps through pixels one at a time so you can visually count how many LEDs on a strand actually light up - handy for verifying a new run or finding where a strand died.</p>
   <div class="note">This takes over channel output while active. Playback should be stopped. Leaving this page, or clicking "All Off", clears test mode.</div>
+  <div class="note" id="pt-playing-banner" style="display:none;background:#fdecec;border-color:#f5b5b5;color:#8a1f1f">
+    <span id="pt-playing-text"></span>
+    <button class="sec" style="margin-left:10px" onclick="ptStopPlayback()">Stop playback</button>
+  </div>
 
   <div class="card">
     <div class="head">
@@ -54,6 +58,7 @@
       <button class="sec" onclick="ptLoadPorts()">Refresh</button>
       <button class="sec" onclick="ptFillAll()">Fill all ports (white)</button>
       <button class="danger" onclick="ptStop()">All Off / Stop Test</button>
+      <a class="sec" style="text-decoration:none;padding:8px 14px;border-radius:7px;background:#eceef2;color:#374151;font-size:13.5px;font-weight:600" href="plugin.php?plugin=portledtest&amp;page=action.php&amp;nopage=1&amp;action=history_csv">Download history (CSV)</a>
     </div>
     <div class="body">
       <div id="pt-table-wrap"><div class="empty">Loading ports…</div></div>
@@ -98,12 +103,19 @@
             <option value="250">Fast (4/s)</option>
             <option value="100">Very fast (10/s)</option>
           </select>
+          <div class="muted" style="font-size:12.5px;margin:10px 0 6px">Auto-off if idle</div>
+          <select id="pt-idle-timeout">
+            <option value="300000">5 minutes</option>
+            <option value="600000" selected>10 minutes</option>
+            <option value="1200000">20 minutes</option>
+            <option value="0">Never</option>
+          </select>
         </div>
       </div>
 
       <hr style="border:none;border-top:1px solid #eceef2;margin:16px 0">
 
-      <div class="muted" style="text-align:center;font-size:12.5px">Count mode - one pixel lit at a time</div>
+      <div class="muted" style="text-align:center;font-size:12.5px">Count mode - one pixel lit at a time &middot; keyboard: &larr;/&rarr; step, space play/pause</div>
       <div class="stepbar">
         <button class="sec" onclick="ptJump(1)">|&lt;</button>
         <button class="sec" onclick="ptStep(-1)">&lt;</button>
@@ -140,12 +152,15 @@
   var color = {r:255,g:255,b:255};
   var playing = false;
   var playTimer = null;
+  var lastActivity = Date.now();
+  var liveNow = false;
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function msg(id, text, ok){ var e=$(id); if(!e) return; e.textContent=text||''; e.className='msg '+(text?(ok?'good':'err'):''); }
 
   function post(action, data, cb){
+    lastActivity = Date.now();
     var fd = new FormData();
     fd.append('action', action);
     for (var k in data) fd.append(k, data[k]);
@@ -167,6 +182,12 @@
     });
   };
 
+  function capeLabelBadge(p){
+    if (!p.capeLabel) return '';
+    var tip = p.capeLabelVerified ? 'Verified on real WinterLights48 hardware' : 'Design label from documentation - not yet device-verified';
+    return ' <span class="pill '+(p.capeLabelVerified?'ok':'off')+'" title="'+tip+'">cape: '+esc(p.capeLabel)+'</span>';
+  }
+
   function statusPill(p){
     if (!p.result) return '<span class="pill off"><span class="dot"></span>Not tested</span>';
     if (p.result.match) return '<span class="pill ok"><span class="dot"></span>OK ('+p.result.observed+')</span>';
@@ -186,7 +207,7 @@
       var unit = (p.colorOrder === 'RAW') ? 'ch' : 'px';
       html += '<tr class="'+(isSel?'sel':'')+'">' +
         '<td>'+esc(p.type)+' #'+esc(p.port)+(p.coEnabled?'':' <span class="pill warn" title="This output is disabled under Channel Outputs">disabled</span>')+'</td>' +
-        '<td>'+esc(p.description)+'</td>' +
+        '<td>'+esc(p.description)+capeLabelBadge(p)+'</td>' +
         '<td class="muted">'+p.dataStartChannel+'-'+p.endChannel+'</td>' +
         '<td>'+p.addressablePixels+' '+unit+(p.groupCount>1?(' (&times;'+p.groupCount+' grouped)'):'')+'</td>' +
         '<td class="muted">'+esc(p.colorOrder)+'</td>' +
@@ -205,7 +226,7 @@
     stepIndex = 1;
     ptStopPlay();
     $('pt-tester').style.display = '';
-    $('pt-tester-title').textContent = 'Testing ' + sel.type + ' #' + sel.port + ' - ' + sel.description;
+    $('pt-tester-title').textContent = 'Testing ' + sel.type + ' #' + sel.port + ' - ' + sel.description + (sel.capeLabel ? (' (cape: ' + sel.capeLabel + ')') : '');
     $('pt-observed').value = sel.addressablePixels;
     $('pt-note').value = '';
     msg('pt-msg-test', '', true);
@@ -230,6 +251,7 @@
   };
 
   function setBadge(active){
+    liveNow = !!active;
     var b = $('pt-tester-badge');
     if (active){ b.className='pill ok'; b.innerHTML='<span class="dot"></span>Live'; }
     else { b.className='pill off'; b.innerHTML='<span class="dot"></span>Idle'; }
@@ -349,6 +371,57 @@
     } catch(e){}
   });
 
+  // --- "A sequence is playing" banner -------------------------------------
+  window.ptStopPlayback = function(){
+    post('stop_playback', {}, function(r){
+      msg('pt-msg-list', r.ok ? 'Playback stopped.' : (r.error||'Failed'), r.ok);
+      ptPollStatus();
+    });
+  };
+
+  function ptPollStatus(){
+    post('status', {}, function(r){
+      var banner = $('pt-playing-banner');
+      if (!r.ok){ banner.style.display = 'none'; return; }
+      var seqActive = (r.status_name === 'playing' || r.status_name === 'paused');
+      if (seqActive){
+        var what = r.current_playlist || r.current_sequence || 'a sequence';
+        $('pt-playing-text').textContent = (r.status_name === 'paused' ? 'Paused: ' : 'Currently playing: ') + what + ' - starting a test will interrupt it.';
+        banner.style.display = '';
+      } else {
+        banner.style.display = 'none';
+      }
+    });
+  }
+  setInterval(ptPollStatus, 5000);
+
+  // --- Auto-off after inactivity, so a forgotten tab doesn't leave a port
+  //     lit (and driving current) indefinitely. -------------------------
+  setInterval(function(){
+    if (!liveNow) return;
+    var timeout = parseInt(($('pt-idle-timeout')||{}).value) || 0;
+    if (timeout <= 0) return;
+    if (Date.now() - lastActivity >= timeout){
+      ptStopPlay();
+      post('stop', {}, function(r){
+        setBadge(false);
+        msg('pt-msg-test', 'Auto-stopped after ' + Math.round(timeout/60000) + ' minutes of inactivity.', true);
+      });
+    }
+  }, 15000);
+
+  // --- Keyboard shortcuts while a port is selected: Left/Right step,
+  //     Space toggles play/pause. Ignored while typing in a field. -------
+  document.addEventListener('keydown', function(e){
+    if (!sel) return;
+    var tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'ArrowRight'){ ptStep(1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft'){ ptStep(-1); e.preventDefault(); }
+    else if (e.key === ' '){ ptTogglePlay(); e.preventDefault(); }
+  });
+
+  ptPollStatus();
   ptLoadPorts();
 })();
 </script>
